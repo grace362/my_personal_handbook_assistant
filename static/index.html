@@ -1,26 +1,135 @@
 <!doctype html>
 <html lang="en">
-<head>
-  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Handbook Assistant</title><link rel="stylesheet" href="/static/styles.css">
-</head>
-<body>
-  <header class="topbar"><a class="brand" href="/">HANDBOOK<span>ASSISTANT</span></a><div id="connection" class="connection"><i></i> Checking connection</div></header>
-  <main class="layout">
-    <aside class="sidebar">
-      <div class="side-heading"><div><span class="eyebrow">YOUR LIBRARY</span><h2>Documents</h2></div><span id="doc-count" class="count">0</span></div>
-      <label class="upload" for="file-input"><span class="upload-icon">↑</span><strong>Upload documents</strong><small>PDF, DOCX, TXT, or Markdown</small><input id="file-input" type="file" accept=".pdf,.docx,.txt,.md" multiple></label>
-      <div id="upload-status" class="upload-status" role="status"></div>
-      <div id="documents" class="documents"><div class="empty-docs">Your uploaded handbooks<br>will appear here.</div></div>
-      <div class="sidebar-note"><span class="lock">▣</span><p>Documents stay on this computer. Groq receives only the retrieved text needed to answer.</p></div>
-    </aside>
-    <section class="main-panel">
-      <div class="hero"><span class="eyebrow">ASK YOUR HANDBOOK</span><h1>Answers, with receipts.</h1><p>Ask a question and see exactly which document passages support the answer.</p></div>
-      <div id="welcome" class="welcome"><div class="welcome-mark">✳</div><h2>Start a conversation</h2><p>Say hello, ask for help, or ask a question about your uploaded handbook.</p><div class="suggestions"><button>Hi!</button><button>Can you help me today?</button><button>What does my handbook say about time off?</button></div></div>
-      <div id="conversation" class="conversation" aria-live="polite"></div>
-      <form id="ask-form" class="ask-form"><textarea id="question" rows="1" placeholder="Chat or ask about your handbook…" aria-label="Your question"></textarea><button id="ask-button" type="submit" aria-label="Send question">↑</button><div class="form-hint">Chat naturally. Handbook answers use your uploaded documents and show their sources.</div></form>
-    </section>
-  </main>
-  <dialog id="text-dialog"><div class="dialog-head"><div><span class="eyebrow">EXTRACTED TEXT</span><h2 id="dialog-title">Document</h2></div><button id="close-dialog" class="close" aria-label="Close">×</button></div><pre id="dialog-text"></pre></dialog>
-  <script src="/static/app.js"></script>
-</body></html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Handbook Assistant</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="brand" href="/">HANDBOOK<span>ASSISTANT</span></a>
+      <div id="connection" class="connection"><i></i> Checking connection</div>
+    </header>
+    <main class="layout">
+      <aside class="sidebar">
+        <div class="side-heading">
+          <div>
+            <span class="eyebrow">YOUR LIBRARY</span>
+            <h2>Documents</h2>
+          </div>
+          <span id="doc-count" class="count">0</span>
+        </div>
+        <label class="upload" for="file-input"
+          ><span class="upload-icon">↑</span><strong>Upload documents</strong
+          ><small>PDF, DOCX, TXT, or Markdown</small
+          ><input
+            id="file-input"
+            type="file"
+            accept=".pdf,.docx,.txt,.md"
+            multiple
+        /></label>
+        <div id="upload-status" class="upload-status" role="status"></div>
+        <p id="corpus-stats" class="corpus-stats"></p>
+        <div id="upload-log" class="upload-log"></div>
+        <div id="suggested-panel" class="suggested-panel">
+          <span class="eyebrow">TRY ASKING</span>
+          <h3>Suggested questions</h3>
+          <p id="suggested-empty" class="suggested-hint">
+            Click <strong>?</strong> on a document to generate questions, or use a starter below.
+          </p>
+          <div id="suggested-list"></div>
+          <div class="suggested-doc suggested-starters">
+            <h4>Starters</h4>
+            <div class="suggestions" id="starter-questions">
+              <button type="button">How many days before vacation should I apply?</button>
+              <button type="button">What should I do after clicking a suspicious link?</button>
+              <button type="button">What is the company's annual bonus target?</button>
+            </div>
+          </div>
+        </div>
+        <div id="documents" class="documents">
+          <div class="empty-docs">
+            Your uploaded handbooks<br />will appear here.
+          </div>
+        </div>
+        <div class="sidebar-note">
+          <span class="lock">▣</span>
+          <p>
+            Documents stay on this computer. Groq receives only the retrieved
+            text needed to answer.
+          </p>
+        </div>
+      </aside>
+      <section class="main-panel">
+        <div class="chat-scroll">
+          <div class="hero">
+            <span class="eyebrow">ASK YOUR HANDBOOK</span>
+            <h1>Answers, with receipts.</h1>
+            <p>
+              Ask a question and see exactly which document passages support the
+              answer.
+            </p>
+          </div>
+          <div id="welcome" class="welcome">
+            <div class="welcome-mark">✳</div>
+            <h2>Ask your documents</h2>
+            <p>
+              Pick a question in the sidebar or type your own. Every answer shows
+              the exact passages used.
+            </p>
+          </div>
+          <div id="conversation" class="conversation" aria-live="polite" aria-label="Question and answer history"></div>
+        </div>
+        <form id="ask-form" class="ask-form">
+          <textarea
+            id="question"
+            rows="1"
+            placeholder="Ask a question about your uploaded documents…"
+            aria-label="Your question"
+          ></textarea
+          ><button id="ask-button" type="submit" aria-label="Send question" disabled>
+            →
+          </button>
+          <div class="form-hint">
+            Answers use retrieved passages only. Sources appear below every
+            response.
+          </div>
+        </form>
+      </section>
+    </main>
+    <dialog id="text-dialog">
+      <div class="dialog-head">
+        <div>
+          <span class="eyebrow">EXTRACTED TEXT</span>
+          <h2 id="dialog-title">Document</h2>
+        </div>
+        <button id="close-dialog" class="close" aria-label="Close">×</button>
+      </div>
+      <pre id="dialog-text"></pre>
+    </dialog>
+    <dialog id="confirm-delete-dialog" class="confirm-dialog">
+      <div class="dialog-head">
+        <div>
+          <span class="eyebrow">REMOVE DOCUMENT</span>
+          <h2>Remove from library?</h2>
+        </div>
+        <button type="button" id="confirm-delete-close" class="close" aria-label="Close">×</button>
+      </div>
+      <div class="dialog-body">
+        <p>
+          <strong id="confirm-delete-name"></strong> will be removed from this assistant.
+        </p>
+        <p class="dialog-muted">
+          Its chunks and suggested questions will be deleted from your local index. Files in
+          <code>programme_documents/</code> on disk are not affected.
+        </p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="confirm-delete-cancel" class="btn-secondary">Cancel</button>
+        <button type="button" id="confirm-delete-ok" class="btn-danger">Remove document</button>
+      </div>
+    </dialog>
+    <script src="/static/app.js"></script>
+  </body>
+</html>

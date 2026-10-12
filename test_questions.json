@@ -1,0 +1,87 @@
+{
+  "abstention_phrase": "That is not covered in the documents I have.",
+  "frozen": true,
+  "note": "Northline Analytics demo corpus: three company handbooks.",
+  "questions": [
+    {
+      "id": 1,
+      "question": "How many days before vacation should I apply?",
+      "answerable": true,
+      "expected_source": "people_handbook.txt",
+      "keywords": ["ten calendar days"],
+      "gold_answer": "At least ten calendar days before the first day away."
+    },
+    {
+      "id": 2,
+      "question": "What is the meal reimbursement limit per day while traveling?",
+      "answerable": true,
+      "expected_source": "people_handbook.txt",
+      "keywords": ["$60 per day"],
+      "gold_answer": "$60 per day for approved business travel."
+    },
+    {
+      "id": 3,
+      "question": "How much paid parental leave is available?",
+      "answerable": true,
+      "expected_source": "people_handbook.txt",
+      "keywords": ["twelve weeks"],
+      "gold_answer": "Twelve weeks of paid parental leave after six months of employment."
+    },
+    {
+      "id": 4,
+      "question": "When are payroll deposits made?",
+      "answerable": true,
+      "expected_source": "people_handbook.txt",
+      "keywords": ["fifteenth", "payroll"],
+      "gold_answer": "On the fifteenth and final business day of each month."
+    },
+    {
+      "id": 5,
+      "question": "How quickly must I report a lost company laptop?",
+      "answerable": true,
+      "expected_source": "it_security_policy.txt",
+      "keywords": ["immediately"],
+      "gold_answer": "Report lost or stolen devices to the IT Help Desk immediately."
+    },
+    {
+      "id": 6,
+      "question": "What should I do after clicking a suspicious link?",
+      "answerable": true,
+      "expected_source": "it_security_policy.txt",
+      "keywords": ["IT Help Desk", "immediately"],
+      "gold_answer": "Contact the IT Help Desk immediately and explain what happened."
+    },
+    {
+      "id": 7,
+      "question": "What approval is needed for a purchase over $5,000?",
+      "answerable": true,
+      "expected_source": "operations_guide.txt",
+      "keywords": ["5,000", "vendor quotes"],
+      "gold_answer": "Two competitive vendor quotes unless Finance grants a written exception."
+    },
+    {
+      "id": 8,
+      "question": "What is the company's annual bonus target percentage?",
+      "answerable": false,
+      "expected_source": null,
+      "keywords": [],
+      "gold_answer": null
+    },
+    {
+      "id": 9,
+      "question": "What is the paid pet bereavement leave policy?",
+      "answerable": false,
+      "expected_source": null,
+      "keywords": [],
+      "gold_answer": null
+    },
+    {
+      "id": 10,
+      "question": "What is the headquarters street address of Northline Analytics?",
+      "answerable": false,
+      "expected_source": null,
+      "keywords": [],
+      "gold_answer": null
+    }
+  ]
+}

@@ -2,4 +2,6 @@
 __pycache__/
 data/documents/*
 data/chunks.json
+data/suggestions.json
+data/chroma/
 .env

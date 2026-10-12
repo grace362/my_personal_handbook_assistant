@@ -1,18 +1,19 @@
-"""Local handbook assistant: Flask UI, lightweight TF-IDF retrieval, and Groq chat API."""
+"""Local handbook assistant: Chroma retrieval, chunk store, and Groq answers."""
 from __future__ import annotations
 
 import json
-import math
 import os
 import re
 import threading
 import urllib.error
 import urllib.request
-from collections import Counter
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request, send_from_directory
+
+from retrieval import index_chunks, remove_source_from_index, retrieve
 
 try:
     from pypdf import PdfReader
@@ -24,30 +25,36 @@ except ImportError:
     WordDocument = None
 
 ROOT = Path(__file__).resolve().parent
+load_dotenv(ROOT / ".env")
 DATA = ROOT / "data"
 UPLOADS = DATA / "documents"
+PROGRAMME_DIR = ROOT / "programme_documents"
 STORE = DATA / "chunks.json"
+SUGGESTIONS_STORE = DATA / "suggestions.json"
+ABSTENTION = "That is not covered in the documents I have."
 app = Flask(__name__, static_folder="static")
 app.config["MAX_CONTENT_LENGTH"] = 30 * 1024 * 1024
 lock = threading.RLock()
 ALLOWED = {".txt", ".md", ".pdf", ".docx"}
 CHUNK_SIZE, OVERLAP = 800, 150
-STOPWORDS = set("a an the is are was were be been being do does did can could would should what which when where how who whom why to of in on at by for from with about into after before during and or but if then than this that these those i me my we our you your it its they their he she as per have has had company".split())
-DEFAULT_MODEL = "openai/gpt-oss-120b"
+# Smaller OSS model is more widely enabled on free/developer Groq keys than 120B.
+DEFAULT_MODEL = "openai/gpt-oss-20b"
 RETIRED_MODELS = {"llama-3.3-70b-versatile", "llama-3.1-8b-instant"}
-QUERY_EXPANSIONS = {
-    "concern": ("complaint", "incident", "report"),
-    "concerns": ("complaints", "incidents", "report"),
-    "retaliation": ("retaliate", "reprisal"),
-    "protection": ("protect", "prevent"),
-    "process": ("procedure", "steps"),
-    "workplace": ("harassment", "employee"),
-    "reporting": ("report", "complaint"),
+RETIRED_MODEL_REPLACEMENTS = {
+    "llama-3.3-70b-versatile": "openai/gpt-oss-20b",
+    "llama-3.1-8b-instant": "openai/gpt-oss-20b",
 }
 
 
-def tokenize(s: str) -> list[str]:
-    return re.findall(r"[a-z0-9][a-z0-9'-]*", s.lower())
+def resolve_groq_model() -> str:
+    configured = os.environ.get("GROQ_MODEL", "").strip()
+    if not configured:
+        return DEFAULT_MODEL
+    if configured in RETIRED_MODELS:
+        return RETIRED_MODEL_REPLACEMENTS.get(configured, DEFAULT_MODEL)
+    if configured in {"gpt-oss-120b", "gpt-oss-20b"}:
+        return f"openai/{configured}"
+    return configured
 
 
 def split_chunks(text: str, name: str) -> list[dict[str, Any]]:
@@ -92,6 +99,35 @@ def save_store(chunks: list[dict[str, Any]]) -> None:
     tmp.replace(STORE)
 
 
+def load_suggestions() -> dict[str, list[str]]:
+    if not SUGGESTIONS_STORE.exists():
+        return {}
+    try:
+        data = json.loads(SUGGESTIONS_STORE.read_text(encoding="utf-8"))
+        if not isinstance(data, dict):
+            return {}
+        return {k: v for k, v in data.items() if isinstance(k, str) and isinstance(v, list)}
+    except (OSError, json.JSONDecodeError):
+        return {}
+
+
+def save_suggestions(all_suggestions: dict[str, list[str]]) -> None:
+    DATA.mkdir(parents=True, exist_ok=True)
+    tmp = SUGGESTIONS_STORE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(all_suggestions, ensure_ascii=False, indent=2), encoding="utf-8")
+    tmp.replace(SUGGESTIONS_STORE)
+
+
+def set_document_suggestions(name: str, questions: list[str]) -> None:
+    cleaned = [q.strip() for q in questions if isinstance(q, str) and q.strip()][:8]
+    store = load_suggestions()
+    if cleaned:
+        store[name] = cleaned
+    else:
+        store.pop(name, None)
+    save_suggestions(store)
+
+
 def extract(path: Path) -> str:
     ext = path.suffix.lower()
     if ext in {".txt", ".md"}:
@@ -109,35 +145,6 @@ def extract(path: Path) -> str:
     raise ValueError("Supported file types are TXT, MD, PDF, and DOCX.")
 
 
-def retrieve(question: str, limit: int = 3) -> list[dict[str, Any]]:
-    chunks = load_store()
-    terms = Counter(t for t in tokenize(question) if t not in STOPWORDS)
-    if not chunks or not terms:
-        return []
-    # Lightweight synonym expansion helps natural questions match handbook wording
-    # such as "retaliation" vs. "retaliate" or "concern" vs. "incident/report".
-    q = {term: float(weight) for term, weight in terms.items()}
-    for term, weight in terms.items():
-        for synonym in QUERY_EXPANSIONS.get(term, ()):
-            q[synonym] = max(q.get(synonym, 0.0), float(weight) * 0.6)
-    docs = [Counter(tokenize(c["text"])) for c in chunks]
-    df = Counter(term for d in docs for term in d.keys())
-    n = len(docs)
-    idf = {t: math.log(1 + (n - df[t] + 0.5) / (df[t] + 0.5)) for t in q}
-    scored = []
-    for chunk, doc in zip(chunks, docs):
-        score = sum(weight * idf[t] * (tf * 2.2 / (tf + 1.2))
-                    for t, weight in q.items() for tf in [doc[t]] if tf)
-        # Tiny phrase bonus helps specific names and policy terms.
-        qphrase = " ".join(tokenize(question))
-        body = " ".join(tokenize(chunk["text"]))
-        if qphrase and qphrase in body:
-            score += 2
-        scored.append((score, chunk))
-    scored.sort(key=lambda item: item[0], reverse=True)
-    return [{**c, "score": round(float(s), 4)} for s, c in scored[:limit] if s > 0]
-
-
 def groq_answer(question: str, chunks: list[dict[str, Any]]) -> str:
     key = os.environ.get("GROQ_API_KEY", "").strip()
     if not key:
@@ -145,15 +152,13 @@ def groq_answer(question: str, chunks: list[dict[str, Any]]) -> str:
     context = "\n\n".join(f"[Source: {c['source']} | Chunk: {c['id']}]\n{c['text']}" for c in chunks)
     prompt = f'''Answer the question using only the context below. Synthesize the relevant findings in your own words instead of copying or listing retrieved passages. Give a concise, useful summary that directly answers the question; combine related details and include important conditions or exceptions when the context supports them. For a simple factual question, a direct sentence is enough. Cite supporting filenames inline in square brackets. Use plain text, without Markdown formatting.
 
-If the answer is not in the context, say exactly: "That is not covered in the documents I have." Do not use any other knowledge.
+If the answer is not in the context, say exactly: "{ABSTENTION}" Do not use any other knowledge.
 
 Context:
 {context}
 
 Question: {question}'''
-    configured_model = os.environ.get("GROQ_MODEL", "").strip()
-    # The previous starter default was retired for developer-tier accounts.
-    model = DEFAULT_MODEL if not configured_model or configured_model in RETIRED_MODELS else configured_model
+    model = resolve_groq_model()
     payload = json.dumps({
         "model": model,
         "temperature": 0,
@@ -173,9 +178,59 @@ Question: {question}'''
         detail = exc.read().decode(errors="replace")[:500]
         if exc.code == 403 and "1010" in detail:
             detail += " (Cloudflare rejected the client signature; the app now sends a named User-Agent. Restart it and retry. If this persists, try another network or contact Groq support with the CF-RAY response header.)"
+        if exc.code == 404 and "model" in detail.lower():
+            detail += f" (This app is using model {model!r}. Set GROQ_MODEL in .env to an ID from https://console.groq.com/docs/models, then restart python app.py.)"
         raise RuntimeError(f"Groq API error ({exc.code}): {detail}") from exc
     except (urllib.error.URLError, TimeoutError) as exc:
         raise RuntimeError(f"Could not reach Groq: {exc}") from exc
+
+
+def groq_suggest_questions(document_name: str, text: str) -> list[str]:
+    """Propose answerable questions from document text (for UI hints, not frozen eval)."""
+    key = os.environ.get("GROQ_API_KEY", "").strip()
+    if not key or not text.strip():
+        return []
+    sample = text[:14000]
+    prompt = f'''Read the document excerpt below from "{document_name}".
+
+Write exactly 5 short questions a user could ask this handbook assistant. Each question must be answerable using ONLY facts present in the excerpt. Use clear, natural wording. Do not ask about topics absent from the text.
+
+Return JSON only: {{"questions": ["question one", "question two", ...]}}
+
+Document excerpt:
+{sample}'''
+    model = resolve_groq_model()
+    payload = json.dumps({
+        "model": model,
+        "temperature": 0.3,
+        "response_format": {"type": "json_object"},
+        "messages": [
+            {"role": "system", "content": "You help users explore handbooks. Output valid JSON only."},
+            {"role": "user", "content": prompt},
+        ],
+    }).encode()
+    req = urllib.request.Request(
+        "https://api.groq.com/openai/v1/chat/completions",
+        data=payload,
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "HandbookAssistant/1.0",
+        },
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(req, timeout=60) as response:
+            data = json.loads(response.read().decode())
+        raw = data["choices"][0]["message"]["content"].strip()
+        parsed = json.loads(raw)
+        questions = parsed.get("questions")
+        if not isinstance(questions, list):
+            return []
+        return [q.strip() for q in questions if isinstance(q, str) and q.strip()][:8]
+    except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, KeyError, IndexError, json.JSONDecodeError, TypeError):
+        return []
 
 
 def groq_chat(messages: list[dict[str, str]], chunks: list[dict[str, Any]]) -> dict[str, Any]:
@@ -197,8 +252,7 @@ Return only a valid JSON object with exactly these keys: {"mode":"conversation|g
         "Use them only as evidence for handbook-specific claims.\n\n"
         + (context or "(No passages were retrieved.)")
     )
-    configured_model = os.environ.get("GROQ_MODEL", "").strip()
-    model = DEFAULT_MODEL if not configured_model or configured_model in RETIRED_MODELS else configured_model
+    model = resolve_groq_model()
     payload = json.dumps({
         "model": model,
         "temperature": 0.2,
@@ -229,6 +283,8 @@ Return only a valid JSON object with exactly these keys: {"mode":"conversation|g
         detail = exc.read().decode(errors="replace")[:500]
         if exc.code == 403 and "1010" in detail:
             detail += " (Cloudflare rejected the client signature; the app sends a named User-Agent. If this persists, try another network or contact Groq support with the CF-RAY response header.)"
+        if exc.code == 404 and "model" in detail.lower():
+            detail += f" (This app is using model {model!r}. Set GROQ_MODEL in .env to an ID from https://console.groq.com/docs/models, then restart python app.py.)"
         raise RuntimeError(f"Groq API error ({exc.code}): {detail}") from exc
     except (urllib.error.URLError, TimeoutError) as exc:
         raise RuntimeError(f"Could not reach Groq: {exc}") from exc
@@ -244,8 +300,15 @@ def home():
 @app.get("/api/status")
 def status():
     chunks = load_store()
-    return jsonify({"documents": sorted({c["source"] for c in chunks}), "chunks": len(chunks),
-                    "groq_configured": bool(os.environ.get("GROQ_API_KEY"))})
+    chars = sum(len(c["text"]) for c in chunks)
+    return jsonify({
+        "documents": sorted({c["source"] for c in chunks}),
+        "chunks": len(chunks),
+        "characters": chars,
+        "estimated_pages": max(0, chars // 3000),
+        "retrieval": "chroma+embeddings",
+        "groq_configured": bool(os.environ.get("GROQ_API_KEY")),
+    })
 
 
 @app.post("/api/upload")
@@ -276,7 +339,10 @@ def upload():
             with lock:
                 current = [c for c in load_store() if c["source"] != dest.name]
                 save_store(current + chunks)
-            added.append({"name": dest.name, "chunks": len(chunks)})
+                index_chunks(chunks)
+            suggested = groq_suggest_questions(dest.name, text)
+            set_document_suggestions(dest.name, suggested)
+            added.append({"name": dest.name, "chunks": len(chunks), "suggested_questions": suggested})
         except Exception as exc:
             dest.unlink(missing_ok=True)
             errors.append(f"{name}: {exc}")
@@ -298,10 +364,61 @@ def delete_document(name: str):
         if len(chunks) == len(load_store()):
             return jsonify(error="Document not found."), 404
         save_store(chunks)
+        remove_source_from_index(name)
+        suggestions = load_suggestions()
+        suggestions.pop(name, None)
+        save_suggestions(suggestions)
         for path in UPLOADS.glob("*"):
             if path.name == name:
                 path.unlink(missing_ok=True)
     return jsonify(ok=True)
+
+
+def chunk_position(source: str, chunk_id: str) -> dict[str, int]:
+    file_chunks = [c for c in load_store() if c["source"] == source]
+    for index, chunk in enumerate(file_chunks, start=1):
+        if chunk["id"] == chunk_id:
+            return {"chunk_number": index, "chunk_total": len(file_chunks)}
+    return {"chunk_number": 0, "chunk_total": len(file_chunks)}
+
+
+def source_payload(chunk: dict[str, Any], rank: int) -> dict[str, Any]:
+    pos = chunk_position(chunk["source"], chunk["id"])
+    return {
+        "rank": rank,
+        "name": chunk["source"],
+        "chunk_id": chunk["id"],
+        "chunk_number": pos["chunk_number"],
+        "chunk_total": pos["chunk_total"],
+        "score": chunk["score"],
+        "text": chunk["text"],
+    }
+
+
+@app.get("/api/suggestions")
+def all_suggestions():
+    return jsonify(suggestions=load_suggestions())
+
+
+@app.get("/api/documents/<path:name>/suggestions")
+def document_suggestions_get(name: str):
+    questions = load_suggestions().get(name, [])
+    return jsonify(name=name, questions=questions)
+
+
+@app.post("/api/documents/<path:name>/suggestions")
+def document_suggestions_post(name: str):
+    chunks = [c for c in load_store() if c["source"] == name]
+    if not chunks:
+        return jsonify(error="Document not found."), 404
+    text = "\n\n".join(c["text"] for c in chunks)
+    if not os.environ.get("GROQ_API_KEY", "").strip():
+        return jsonify(error="Add GROQ_API_KEY to generate suggested questions."), 503
+    questions = groq_suggest_questions(name, text)
+    if not questions:
+        return jsonify(error="Could not generate questions. Check Groq model access and try again."), 503
+    set_document_suggestions(name, questions)
+    return jsonify(name=name, questions=questions)
 
 
 @app.post("/api/ask")
@@ -310,13 +427,18 @@ def ask():
     if not question:
         return jsonify(error="Enter a question."), 400
     chunks = retrieve(question, 3)
+    print(f"[retrieve] {question!r}")
+    for i, c in enumerate(chunks, 1):
+        print(f"  {i}. {c['source']} {c['id']} score={c.get('score')} :: {c['text'][:120]}…")
     if not chunks:
-        return jsonify(answer="That is not covered in the documents I have.", sources=[], retrieved=[])
+        return jsonify(answer=ABSTENTION, sources=[], retrieved=[])
     try:
         answer = groq_answer(question, chunks)
     except RuntimeError as exc:
         return jsonify(error=str(exc), retrieved=chunks), 503
-    return jsonify(answer=answer, sources=[{"name": c["source"], "chunk_id": c["id"], "score": c["score"], "text": c["text"]} for c in chunks], retrieved=chunks)
+    sources = [source_payload(c, rank) for rank, c in enumerate(chunks, start=1)]
+    retrieved = [source_payload(c, rank) for rank, c in enumerate(chunks, start=1)]
+    return jsonify(answer=answer, sources=sources, retrieved=retrieved)
 
 
 @app.post("/api/chat")
