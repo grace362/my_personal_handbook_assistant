@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
     <title>Handbook Assistant</title>
     <link rel="stylesheet" href="/static/styles.css" />
   </head>
@@ -20,6 +20,12 @@
           </div>
           <span id="doc-count" class="count">0</span>
         </div>
+        <details class="library-collapsible" id="library-collapsible" open>
+          <summary class="library-summary">
+            <span>Documents &amp; suggested questions</span>
+            <span id="doc-count-summary" class="count">0</span>
+          </summary>
+          <div class="library-collapsible-body">
         <label class="upload" for="file-input"
           ><span class="upload-icon">↑</span><strong>Upload documents</strong
           ><small>PDF, DOCX, TXT, or Markdown</small
@@ -53,6 +59,8 @@
             Your uploaded handbooks<br />will appear here.
           </div>
         </div>
+          </div>
+        </details>
         <div class="sidebar-note">
           <span class="lock">▣</span>
           <p>
@@ -75,8 +83,8 @@
             <div class="welcome-mark">✳</div>
             <h2>Ask your documents</h2>
             <p>
-              Pick a question in the sidebar or type your own. Every answer shows
-              the exact passages used.
+              Open <strong>Documents &amp; questions</strong> above on mobile, or use
+              the starters there. Every answer shows exact passages.
             </p>
           </div>
           <div id="conversation" class="conversation" aria-live="polite" aria-label="Question and answer history"></div>

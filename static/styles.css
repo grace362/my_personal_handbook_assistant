@@ -786,64 +786,226 @@ dialog pre {
   max-height: 65vh;
   overflow: auto;
 }
+/* Collapsible library: summary only on small screens */
+.library-collapsible summary {
+  display: none;
+}
+.library-collapsible-body {
+  display: contents;
+}
+
 @media (max-width: 750px) {
   .topbar {
-    padding: 0 18px;
+    height: 52px;
+    padding: 0 14px;
+  }
+  .brand {
+    font-size: 11px;
+    letter-spacing: 0.08em;
+  }
+  .connection {
+    font-size: 11px;
+    max-width: 42vw;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  body {
+    overflow: hidden;
   }
   .layout {
-    grid-template-columns: 1fr;
-    min-height: calc(100vh - 66px);
+    display: flex;
+    flex-direction: column;
+    grid-template-columns: unset;
+    max-width: none;
+    height: calc(100dvh - 52px);
+    margin: 0;
   }
   .sidebar {
+    flex: 0 0 auto;
     border-right: 0;
     border-bottom: 1px solid var(--line);
-    padding: 16px;
-    max-height: none;
+    padding: 10px 12px 12px;
     overflow: visible;
   }
-  .sidebar-note {
+  .side-heading {
     display: none;
+  }
+  .library-collapsible {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: #f8fbfa;
+    overflow: hidden;
+  }
+  .library-collapsible summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    padding: 12px 14px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    list-style: none;
+  }
+  .library-collapsible summary::-webkit-details-marker {
+    display: none;
+  }
+  .library-collapsible summary::after {
+    content: '▾';
+    color: var(--teal);
+    font-size: 12px;
+    transition: transform 0.15s ease;
+  }
+  .library-collapsible[open] summary::after {
+    transform: rotate(180deg);
+  }
+  .library-collapsible-body {
+    display: block;
+    max-height: min(52dvh, 420px);
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding: 0 12px 12px;
+    -webkit-overflow-scrolling: touch;
+  }
+  .upload {
+    padding: 14px 10px;
+  }
+  .upload small {
+    text-align: center;
   }
   .suggested-panel {
     max-height: none;
+    margin: 10px 0;
+    padding: 10px;
+  }
+  .suggested-panel h3 {
+    font-size: 13px;
   }
   .documents {
     display: flex;
     flex-direction: column;
-    max-height: 200px;
+    gap: 8px;
+    max-height: none;
+    overflow: visible;
+  }
+  .doc-card {
+    padding: 10px 12px;
+  }
+  .doc-actions button {
+    min-width: 36px;
+    min-height: 36px;
+    font-size: 16px;
+  }
+  .sidebar-note {
+    display: none;
   }
   .main-panel {
-    padding: 0 16px;
-    height: auto;
-    min-height: 55vh;
     flex: 1;
+    min-height: 0;
+    height: auto;
+    padding: 0 12px;
+    display: flex;
+    flex-direction: column;
   }
   .chat-scroll {
-    max-height: none;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
   .hero {
-    padding: 22px 0 18px;
+    padding: 16px 0 12px;
+    border-bottom: 0;
   }
   .hero h1 {
-    font-size: 24px;
+    font-size: 22px;
+    margin: 6px 0 4px;
+  }
+  .hero p {
+    font-size: 12px;
+    line-height: 1.5;
   }
   .welcome {
-    padding: 20px 0 28px;
+    padding: 8px 0 20px;
+  }
+  .welcome-mark {
+    width: 44px;
+    height: 44px;
+    font-size: 24px;
+    margin-bottom: 12px;
+  }
+  .welcome h2 {
+    font-size: 17px;
+  }
+  .welcome p {
+    font-size: 12px;
+    max-width: none;
+    padding: 0 4px;
+  }
+  .conversation {
+    padding: 8px 0 12px;
   }
   .user-question {
-    max-width: 95%;
+    max-width: 100%;
+    font-size: 14px;
+  }
+  .answer {
+    font-size: 15px;
   }
   .source-head {
     flex-wrap: wrap;
+    gap: 8px;
   }
-  .suggestions button {
-    font-size: 10px;
+  .source-score {
     width: 100%;
     text-align: left;
   }
+  .source-excerpt {
+    max-height: 160px;
+    font-size: 13px;
+  }
+  .source-open {
+    width: 100%;
+    padding: 10px 12px;
+  }
+  .suggestions button {
+    font-size: 12px;
+    width: 100%;
+    text-align: left;
+    padding: 11px 12px;
+    line-height: 1.45;
+  }
   .ask-form {
-    position: sticky;
-    bottom: 0;
-    padding-bottom: max(16px, env(safe-area-inset-bottom));
+    position: static;
+    margin-top: 0;
+    padding: 10px 0 max(12px, env(safe-area-inset-bottom));
+    grid-template-columns: 1fr 48px;
+  }
+  .ask-form textarea {
+    font-size: 16px;
+    padding: 12px 14px;
+  }
+  .ask-form > button {
+    min-height: 48px;
+    font-size: 22px;
+  }
+  .form-hint {
+    font-size: 9px;
+    line-height: 1.4;
+    padding: 0 2px;
+  }
+  .dialog-actions {
+    flex-direction: column-reverse;
+  }
+  .dialog-actions button {
+    width: 100%;
+    padding: 12px;
+  }
+  dialog {
+    width: 94vw;
+    max-height: 88dvh;
   }
 }

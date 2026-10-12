@@ -211,7 +211,10 @@ async function openAtPassage(name, chunkText) {
 
 async function refresh() {
   const s = await api('/api/status');
-  $('#doc-count').textContent = s.documents.length;
+  const n = s.documents.length;
+  $('#doc-count').textContent = n;
+  const summaryCount = $('#doc-count-summary');
+  if (summaryCount) summaryCount.textContent = n;
   $('#corpus-stats').textContent = s.chunks
     ? `${s.estimated_pages} pg · ${s.chunks} chunks · ${s.retrieval}`
     : 'Upload or run reindex_corpus.py';
@@ -329,4 +332,12 @@ $('#ask-form').addEventListener('submit', async e => {
 });
 
 syncAskButton();
+
+function initMobileLayout() {
+  const library = $('#library-collapsible');
+  if (!library || !window.matchMedia('(max-width: 750px)').matches) return;
+  library.removeAttribute('open');
+}
+
+initMobileLayout();
 refresh().catch(err => { $('#connection').className='connection error'; $('#connection').innerHTML=`<i></i>${escapeHtml(err.message)}`; });
