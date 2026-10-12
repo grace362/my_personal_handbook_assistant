@@ -1,0 +1,19 @@
+IT SECURITY POLICY — DEMONSTRATION SAMPLE
+
+ACCOUNT SECURITY
+Use a unique password for each work account and enable multi-factor authentication wherever it is available. Never share a password or approve an authentication prompt that you did not initiate. Store credentials only in the company-approved password manager. Contact the IT Help Desk immediately if you suspect an account has been compromised.
+
+DEVICES
+Company laptops must use full-disk encryption and automatically lock after five minutes of inactivity. Install operating system and security updates within seven days of release, or sooner when IT marks an update urgent. Do not disable endpoint protection. Lost or stolen devices must be reported to the IT Help Desk immediately.
+
+DATA HANDLING
+Classify internal information as Public, Internal, Confidential, or Restricted. Restricted data may only be stored in approved company systems and shared with people who have a business need and authorization. Do not paste confidential or restricted data into unapproved websites or AI tools. Use the secure file-sharing service rather than personal email to send work documents.
+
+PHISHING AND INCIDENTS
+Do not click suspicious links or open unexpected attachments. Forward suspected phishing messages to security@example.invalid using the Report Phishing button. If you clicked a suspicious link or disclosed credentials, contact the IT Help Desk immediately and include what happened and when. Do not delete evidence related to a suspected security incident.
+
+NETWORKS AND SOFTWARE
+Use the company VPN on public or untrusted Wi-Fi. Software must come from the company software catalog or receive written IT approval. Do not connect unknown USB storage devices to a company computer. Security exceptions require written approval from the Security team and expire after the approved period.
+
+ACCESS AND OFFBOARDING
+Request system access through the IT service portal; the system owner and manager approve access. Access is granted using least privilege and reviewed quarterly. Managers must notify IT on an employee's last working day so accounts and badges can be disabled. Return company devices and security keys during offboarding.
