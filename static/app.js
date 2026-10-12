@@ -296,17 +296,30 @@ function syncAskButton() {
 }
 
 $('#question').addEventListener('input', syncAskButton);
-document.querySelectorAll('#starter-questions button').forEach(b => b.addEventListener('click', () => {
-  $('#question').value = b.textContent;
-  syncAskButton();
-  $('#question').focus();
-}));
+function wireStarterButtons(root) {
+  root.querySelectorAll('button').forEach(b => b.addEventListener('click', () => {
+    $('#question').value = b.textContent;
+    syncAskButton();
+    $('#question').focus();
+  }));
+}
+wireStarterButtons($('#starter-questions'));
+wireStarterButtons($('#mobile-starters'));
+
+function syncMobileStarters() {
+  const mobile = $('#mobile-starters');
+  if (!mobile) return;
+  mobile.hidden = !window.matchMedia('(max-width: 750px)').matches || $('#welcome').hidden;
+}
+window.matchMedia('(max-width: 750px)').addEventListener('change', syncMobileStarters);
+syncMobileStarters();
 
 $('#ask-form').addEventListener('submit', async e => {
   e.preventDefault();
   const question = $('#question').value.trim();
   if (!question) return;
   $('#welcome').hidden = true;
+  syncMobileStarters();
   $('#question').value = '';
   syncAskButton();
   $('#ask-button').disabled = true;
@@ -333,11 +346,16 @@ $('#ask-form').addEventListener('submit', async e => {
 
 syncAskButton();
 
-function initMobileLayout() {
+function syncLibraryCollapsible() {
   const library = $('#library-collapsible');
-  if (!library || !window.matchMedia('(max-width: 750px)').matches) return;
-  library.removeAttribute('open');
+  if (!library) return;
+  if (window.matchMedia('(min-width: 751px)').matches) {
+    library.setAttribute('open', '');
+  } else {
+    library.removeAttribute('open');
+  }
 }
 
-initMobileLayout();
+syncLibraryCollapsible();
+window.matchMedia('(min-width: 751px)').addEventListener('change', syncLibraryCollapsible);
 refresh().catch(err => { $('#connection').className='connection error'; $('#connection').innerHTML=`<i></i>${escapeHtml(err.message)}`; });

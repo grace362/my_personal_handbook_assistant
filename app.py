@@ -44,7 +44,7 @@ RETIRED_MODEL_REPLACEMENTS = {
     "llama-3.3-70b-versatile": "openai/gpt-oss-20b",
     "llama-3.1-8b-instant": "openai/gpt-oss-20b",
 }
-
+ 
 
 def resolve_groq_model() -> str:
     configured = os.environ.get("GROQ_MODEL", "").strip()
@@ -54,7 +54,7 @@ def resolve_groq_model() -> str:
         return RETIRED_MODEL_REPLACEMENTS.get(configured, DEFAULT_MODEL)
     if configured in {"gpt-oss-120b", "gpt-oss-20b"}:
         return f"openai/{configured}"
-    return configured
+    return configured 
 
 
 def split_chunks(text: str, name: str) -> list[dict[str, Any]]:
